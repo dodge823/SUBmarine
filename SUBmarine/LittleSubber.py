@@ -6,9 +6,15 @@ import webbrowser
 import colorsys
 import requests
 from bs4 import BeautifulSoup
-import favicon
 import io
 from urllib.parse import urlparse
+
+# Optional favicon import for dynamic tracking
+HAS_FAVICON = True
+try:
+    import favicon
+except ImportError:
+    HAS_FAVICON = False
 
 # Ensure the system tkinter (TK) library is available. customtkinter depends on
 # the stdlib tkinter which is often provided by a separate system package
@@ -27,8 +33,8 @@ except Exception:
 if HAS_TK:
     try:
         import customtkinter as ctk
-        from CTkMessagebox import CTkMessagebox
         from PIL import Image
+        import tkinter.messagebox as messagebox
     except Exception:
         # If customtkinter or other GUI libs are missing, fall back to CLI.
         HAS_TK = False
@@ -145,15 +151,15 @@ if HAS_TK:
             def save():
                 name = name_entry.get().strip()
                 if not name:
-                    CTkMessagebox(title="Error", message="Please enter a service name")
+                    messagebox.showerror("Error", "Please enter a service name")
                     return
-                    
+
                 try:
                     price = float(price_entry.get())
                     if price <= 0:
                         raise ValueError("Price must be positive")
                 except ValueError:
-                    CTkMessagebox(title="Error", message="Please enter a valid positive price")
+                    messagebox.showerror("Error", "Please enter a valid positive price")
                     return
                 
                 website = website_entry.get().strip()
@@ -494,12 +500,9 @@ if HAS_TK:
                                  command=open_website).pack(side="left", padx=5)
                 
                 def delete_sub(s=sub):
-                    confirm = CTkMessagebox(title="Delete Subscription",
-                                          message=f"Are you sure you want to delete {s['name']}?",
-                                          icon="warning",
-                                          option_1="Yes",
-                                          option_2="No")
-                    if confirm.get() == "Yes":
+                    confirm = messagebox.askyesno("Delete Subscription",
+                                                  f"Are you sure you want to delete {s['name']}?")
+                    if confirm:
                         self.subscriptions.remove(s)
                         self.save_subscriptions()
                         self.refresh_subscription_list()
@@ -527,14 +530,15 @@ if HAS_TK:
                 title = soup.title.string if soup.title else None
 
                 # Get icon
-                icons = favicon.get(url, timeout=5)
                 icon_data = None
-                if icons:
-                    # Get the largest icon
-                    icon = max(icons, key=lambda x: x.width if x.width else 0)
-                    icon_response = requests.get(icon.url, timeout=5)
-                    if icon_response.status_code == 200:
-                        icon_data = icon_response.content
+                if HAS_FAVICON:
+                    icons = favicon.get(url, timeout=5)
+                    if icons:
+                        # Get the largest icon
+                        icon = max(icons, key=lambda x: x.width if x.width else 0)
+                        icon_response = requests.get(icon.url, timeout=5)
+                        if icon_response.status_code == 200:
+                            icon_data = icon_response.content
 
                 return title, icon_data
 
@@ -631,6 +635,7 @@ def run_cli():
                 print("Invalid price")
                 continue
             cycle = input("Billing cycle (Monthly/Yearly) [Monthly]: ").strip() or "Monthly"
+            cycle = 'Monthly' if cycle.lower() == 'monthly' else 'Yearly' if cycle.lower() == 'yearly' else 'Monthly'
             website = input("Website URL [optional]: ").strip()
             if website:
                 if not website.startswith(('http://', 'https://')):
